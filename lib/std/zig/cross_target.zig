@@ -626,6 +626,11 @@ pub const CrossTarget = struct {
                 return .native;
             }
         }
+        // If the OS match and OS is macOS and CPU is arm64, treat always as native
+        // since we'll be running the foreign architecture tests using Rosetta2.
+        if (os_match and os_tag == .macos and builtin.cpu.arch == .aarch64) {
+            return .native;
+        }
 
         // If the OS matches, we can use QEMU to emulate a foreign architecture.
         if (os_match) {
