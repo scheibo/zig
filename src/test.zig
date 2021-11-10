@@ -1132,6 +1132,29 @@ pub const TestContext = struct {
                             .native => try argv.append(exe_path),
                             .unavailable => return, // Pass test.
 
+                            .rosetta => if (builtin.os.tag == .macos) {
+                                // Check based on official Apple docs.
+                                // If sysctlbyname returns errno.ENOENT, then no Rosetta,
+                                // otherwise, either other error or if OK, running a translated
+                                // process.
+                                // https://developer.apple.com/documentation/apple-silicon/about-the-rosetta-translation-environment
+                                var ret: c_int = 0;
+                                var size: usize = @sizeOf(c_int);
+                                std.os.sysctlbynameZ(
+                                    "sysctl.proc_translated",
+                                    &ret,
+                                    &size,
+                                    null,
+                                    0,
+                                ) catch |err| switch (err) {
+                                    error.UnknownName => return, // No Rosetta available
+                                    else => |e| return e, // Unexpected error
+                                };
+                                try argv.append(exe_path);
+                            } else {
+                                return; // Rosetta not available, pass test.
+                            },
+
                             .qemu => |qemu_bin_name| if (enable_qemu) {
                                 // TODO Ability for test cases to specify whether to link libc.
                                 const need_cross_glibc = false; // target.isGnuLibC() and self.is_linking_libc;
