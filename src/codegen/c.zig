@@ -1250,10 +1250,21 @@ fn airPtrElemVal(f: *Function, inst: Air.Inst.Index, prefix: []const u8) !CValue
 }
 
 fn airPtrElemPtr(f: *Function, inst: Air.Inst.Index) !CValue {
-    if (f.liveness.isUnused(inst))
-        return CValue.none;
+    if (f.liveness.isUnused(inst)) return CValue.none;
 
-    return f.fail("TODO: C backend: airPtrElemPtr", .{});
+    const ty_pl = f.air.instructions.items(.data)[inst].ty_pl;
+    const bin_op = f.air.extraData(Air.Bin, ty_pl.payload).data;
+
+    const ptr = try f.resolveInst(bin_op.lhs);
+    const index = try f.resolveInst(bin_op.rhs);
+    const writer = f.object.writer();
+    const local = try f.allocLocal(f.air.typeOfIndex(inst), .Const);
+    try writer.writeAll(" = ");
+    try f.writeCValue(writer, ptr);
+    try writer.writeAll("[");
+    try f.writeCValue(writer, index);
+    try writer.writeAll("];\n");
+    return local;
 }
 
 fn airSliceElemVal(f: *Function, inst: Air.Inst.Index) !CValue {
