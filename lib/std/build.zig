@@ -1476,6 +1476,8 @@ pub const LibExeObjStep = struct {
     target_info: NativeTargetInfo,
     linker_script: ?FileSource = null,
     version_script: ?[]const u8 = null,
+    /// This may be set in order to override the default computed output file name.
+    override_out_filename: ?[]const u8 = null,
     out_filename: []const u8,
     linkage: ?Linkage = null,
     version: ?std.builtin.Version,
@@ -1761,7 +1763,7 @@ pub const LibExeObjStep = struct {
 
         const target = self.target_info.target;
 
-        self.out_filename = std.zig.binNameAlloc(self.builder.allocator, .{
+        self.out_filename = self.override_out_filename orelse (std.zig.binNameAlloc(self.builder.allocator, .{
             .root_name = self.name,
             .target = target,
             .output_mode = switch (self.kind) {
@@ -1774,9 +1776,9 @@ pub const LibExeObjStep = struct {
                 .static => .Static,
             }) else null,
             .version = self.version,
-        }) catch unreachable;
+        }) catch unreachable);
 
-        if (self.kind == .lib) {
+        if (self.kind == .lib and self.override_out_filename == null) {
             if (self.linkage != null and self.linkage.? == .static) {
                 self.out_lib_filename = self.out_filename;
             } else if (self.version) |version| {
@@ -3136,7 +3138,7 @@ pub const InstallArtifactStep = struct {
         artifact.install_step = self;
 
         builder.pushInstalledFile(self.dest_dir, artifact.out_filename);
-        if (self.artifact.isDynamicLibrary()) {
+        if (self.artifact.isDynamicLibrary() and self.artifact.override_out_filename == null) {
             if (artifact.major_only_filename) |name| {
                 builder.pushInstalledFile(.lib, name);
             }
